@@ -1,0 +1,393 @@
+---
+title: "Regular expressions in R"
+author: "Joshua C. Fjelstul, Ph.D."
+date: "May 13, 2022"
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+Regular expressions are a syntax for matching patterns in text. They allow us to detect, extract, replace, or remove text that satisfies a certain pattern, rather than just an exact string. Regular expressions are one of the most powerful tools you can learn for manipulating data and they're essential to learn if you're interested in quantitative text analysis. You can use regular expressions with any kind of text data, from books, to speeches, to legal documents, to tweets and social media posts. They're useful for cleaning plain text, for extracting information from plain text to create string variables, and for detecting information in plain text to create dummy variables. In this tutorial, I'll teach you everything you need to know about them using real-world examples. 
+
+The `tidyverse` includes a package called `stringr` for working with text data. All of the functions in `stringr` can match text exactly or match patterns in text using regular expressions. We'll use this package to implement regular expressions in `R`. You'll need to install and load `tidyverse`, which includes `stringr`, and `lubridate`. 
+
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+```
+
+I study international law and international courts, so in this tutorial, we'll be using `3` lines of text from a [landmark Court of Justice of the European Union (CJEU) judgment](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX%3A62012CJ0370) in case `C‑370/12` as examples. This case is about the legality of the European Stability Mechanism, which the EU created to address the European Sovereign Debt Crisis. But everything we'll cover in this tutorial is applicable to any kind of text data.
+
+These `3` lines of text are particularly good examples because they include numbers, a variety of punctuation marks, text in parentheses, variation in capitalization, and characters with diacritical marks (accents). This will let us test out the full power of regular expressions. 
+
+```{r}
+# The line of the judgment that indicates the case number
+case_text <- "In Case C-370/12,"
+
+# The line of the judgment that indicates the legal procedure
+procedure_text <- "REFERENCE for a preliminary ruling under Article 267 TFEU from the Supreme Court (Ireland), made by decision of 31 July 2012, received at the Court on 3 August 2012, in the proceedings"
+
+# The line of the judgment that lists the judges on the panel
+judges_text <- "composed of V. Skouris, President, K. Lenaerts (Rapporteur), Vice-President, A. Tizzano, R. Silva de Lapuerta, M. Ilešič, L. Bay Larsen, T. von Danwitz, A. Rosas, G. Arestis, J. Malenovský, M. Berger and E. Jarašiūnas, Presidents of Chambers, E. Juhász, A. Borg Barthet, U. Lõhmus, E. Levits, A. Ó Caoimh, J.-C. Bonichot, A. Arabadjiev, C. Toader, J.-J. Kasel, M. Safjan, D. Šváby, A. Prechal, C.G. Fernlund, J.L. da Cruz Vilaça and C. Vajda, Judges,"
+```
+
+At the end of this tutorial, we'll use regular expressions to extract the case number, the legal procedure, and the names of the judges from these `3` strings. We'll also use regular expressions to prepare some text for quantitative text analysis. 
+
+Here's an example of using a regular expression to extract the legal basis of the case. In this tutorial, we'll learn this syntax and how to use it to match patterns in plain text. This is the kind of thing you'll be able to do by the end of this tutorial. 
+
+```{r}
+str_extract(procedure_text, "[A-Z][a-z]+ [0-9]+ [A-Z]+")
+```
+
+This regular expression translates to: "find a single capital letter, followed by one or more lower case letters, followed by a space, followed by one or more numbers, followed by a space, followed by one or more capital letters." This regular expression returns `Article 267 TFEU`. TFEU stands for Treaty on the Functioning of the European Union, which is one of the two EU treaties. Article 267 is the legal basis for preliminary rulings, a type of case where a national court can refer a question in case that involves EU law to the CJEU.
+
+This regular expression lets us extract the information we're interested in based only on the pattern — not the exact text. This is really powerful tool because we can find information we're interested in without knowing the exact text ahead of time. 
+
+If we had the text of many judgments, say `10000+` judgments, we could use this regular expression to extract the legal basis of each case *as long as the legal basis follows the same pattern in all of the judgments.* Regular expressions make cleaning and manipulating text data much faster than doing it by hand. 
+
+Regular expressions are most useful when the information you're interested in matching (to detect, extract, replace, or remove) follows a predictable pattern. But in the real world, there are often exceptions and irregularities (including typos). We can writing increasingly complex regular expressions to match increasingly messy text. Regular expressions can get pretty complex and they can be a bit tedious to write, so they might not be worth it if you're only working with a small amount of text. But they payoffs can be huge when we're working with a lot of text — like thousands or tens of thousands of documents — and it becomes too time-consuming to find what you're looking for by hand or too expensive to pay someone to do it for you. 
+
+# Functions for working with text
+
+The `stringr` package includes a variety of really useful functions for working with text. We can organize these functions into categories based on what they do. There are functions for detecting, extracting, replacing, and removing text. All of the functions start with the prefix `str_`. 
+
+- Detecting text: `str_detect()`, `str_count()`
+- Extracting text: `str_extract()`, `str_extract_all()`
+- Replacing text: `str_replace()`, `str_replace_all()`
+- Removing text: `str_remove()`, `str_remove_all()`
+
+All of these functions are vectorized, which means you can use them on a single string or an a vector of strings, like a column of a `tibble`. They'll all return the exact same number of elements as you put in. 
+
+`stringr` includes a variety of other useful functions. `str_c()` allows you to combine string vectors, element by element or collapse a string vector into a single string. `str_trim()` removes white space (spaces, tabs, line breaks) at the start and end of a string. `str_squish()` is similar, but it also removes extra space inside a string. You can look at the [package documentation](https://stringr.tidyverse.org) to see the full list of functions.
+
+# Regular expression syntax
+
+Regular expression syntax takes some getting used to, and you'll probably need to refer back to a cheat sheet at first, but it's worth taking the time to learn all of the syntax. In this section, we'll introduce the syntax, and then in the next section, we'll do some examples in `R`. 
+
+There are `6` aspects of regular expression syntax that we'll need to learn: 
+
+1. Meta characters
+2. Special characters
+3. Alternates
+4. Quantifiers
+5. Anchors
+6. Groups
+
+## Meta characters
+
+Regular expressions use various punctuation marks to match patterns in strings. The characters that have special meanings in regular expressions are called meta characters.
+
+```r
+. # Match any single character (except a line break)
+? # Match the preceding item 0 or 1 times
++ # Match the preceding item 1 or more times
+* # Match the preceding 0 or more times
+^ # Match the start of a string
+$ # Match the end of a string
+- # Create a range in a character class
+| # The "or" operator
+[] # Create a character class
+() # Create a group
+{} # Create a quantifier
+\ # Escape a special character
+```
+
+In this tutorial, we'll walk through how to use these meta characters to construct regular expressions that we can use to detect, extract, replace, and remove text.
+
+If you want to match a meta character, you need to indicate in your regular expression that you want to use the character literally. We do this by adding `\\` in front of the character. This is called "escaping" the character. For example, to match a literal `+` in a string, we would use `\\+`. One `\` is required by the regular expression syntax and another `\` is required by `R`. To match a literal `\`, we'd have to use `\\\\`!
+
+## Special characters
+
+We also see `\` when we need to match special characters. We can match a tab using `\t`, a carriage return (CR) using `\r`, and a line feed using `\n` (LF). On typewriters, a carriage return moves the cursor back to the start of the line and a line feed jumps the cursor down to the next line. Starting a new line took a carriage return and a line feed.
+
+On computers, different operating systems indicate a new line in different ways: `\r` is the character for a new line in Mac OS 9 and earlier, `\n` is a new line in Unix and Mac OS X and MacOS, and `\r\n` is a new line in Windows.
+
+There are a few other useful special characters. `\w` matches word characters, `\W` matches non-word characters, `\d` matches digits, `\D` matches non-digits, `\s` matches white space, `\S` matches non-white space, and `\b` matches word boundaries. We'll look at an example that uses `\b` later on. 
+
+When we use regular expressions in `R`, we need to use `\\` instead of `\` to escape special characters, just like when we escape meta characters, so `\n` becomes `\\n` and so on.
+
+## Alternates
+
+We can match multiple characters by creating a character class. A character class is a set of characters, and it will match any character in the set. You can include individual characters or ranges of characters. To make a character class, you use `[]`. For example, the class `[abc]` will match `a`, `b`, or `c` and the class `[123]` will match `1`, `2`, and `3`. Note that character classes are case sensitive, so `[abc]` will match `a` but not `A`. It doesn't matter what order you put the characters in. `[abc]` is the same as `[cba]` and `[bca]`.
+
+You have to match characters with diacritical marks explicitly. `[abc]` will not match `á` but `[ábc]` will.
+
+For numbers and letters, you can specify a range using `-`. For example, `[a-z]` will match all lower case letters and `[A-Z]` will match all upper case letters. `[0-9]` will match all numbers. If you want to match a literal `-`, you have to escape it inside the character class, as in `[a-z\-]`. Notice that this time, you only need to add one `\`. 
+
+You can also make a character class that includes all characters but a certain set using `^`. To match all characters except `a`, `b`, and `c`, we could use `[^abc]`. Here, the `^` means "anything except what follows."
+
+You can use a character class instead of escaping a meta character. For example, you can match a literal `+` using `\\+` or `[+]`. It's more idiomatic to escape the meta character using `\\`.
+
+There are a variety of pre-defined character classes. You have to use these inside the `[]` that create the character class, as in `[[:alpha:]]`, which means you have double `[[` and `]]`. The reason for this is so you can include multiple pre-defined character classes in one character class or one or more pre-defined character classes with one or more other characters or ranges in one character class, like `[[:alpha:],.]`, which would match any letter or a comma or a period.
+
+```r
+[:lower:] # The letters a-z, including letters with diacritical marks
+[:upper:] # The letters A-Z, including letters with diacritical marks
+[:digit:] # The numbers 0-9
+[:punct:] # Punctuation . , : ; ? ! \ | / ` = * + - ^ _ ~ " ' [ ] { } ( ) < > @ # $
+[:blank:] # Spaces and tabs (\t)
+[:space:] # [:blank:] plus line breaks (\n and \r)
+[:alpha:] # [:lower:] plus [:upper:]
+[:alnum:] # [:alpha:] plus [:digit:]
+[:graph:] # [:alnum:] plus [:punct:]
+[:print:] # [:graph:] plus [:blank:]
+```
+
+For example, you can match all letters using `[A-Za-z]` or `[[:alpha:]]`. You could also use `[[:lower:][:upper:]]` These are all synonyms.
+
+The character class `[:alpha:]` is particularly useful because it matches letters with diacritical marks (like accents). `[A-Za-z]` will not match `á`, but `[[:alpha:]]` will. `[[:alpha:]]` is much more convenient if you are working with non-English text or text with non-English words or names, like our example CJEU text. 
+
+In addition to character classes, we can use `.` to match any character (except a line break). We can think of `.` as a wildcard. 
+
+We can use `|` to match one pattern or another. This is called the "or" operator. It's like the logical `|` operator in `R`. For example, `Article 258|Article 267` will match `Article 258`, which is the legal basis for compliance cases, or `Article 268`, which is the legal basis for preliminary rulings. This is useful when you're looking to match a limited number of set phrases or when the information you want to find could have a couple of formats, like dates or case numbers. You can write a regular expression for each format and separate them by `|`. 
+
+## Quantifiers
+
+Sometimes we need to match a character or character class multiple times in a row. We can use quantifiers to indicate how many times we want to match something. For example, to match a date in a `YYYY-MM-DD` format, we'd want to match four numbers, followed by a dash, followed by two more numbers, followed by another dash, followed by two more numbers. We could do that using the regular expression `[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]`, but that's long and repetitive. Quantifiers let us do something like `[0-9]+-[0-9]+-[0-9]+` instead.
+
+There are `6` ways to quantify the number of times you want to match something. `?` will match the preceding item `0` or `1` times. It's a way of saying "the preceding item is optional." `+` will match the preceding item `1` or more times. It's a way of saying "the preceding item needs to be there, but there could occur a few times." `*` will match the preceding item `0` or more times. It's a way of saying "the preceding item could be there, it could occur a few times, but might also not be there." 
+
+We can also be more specific and say exactly how many times we want to match something using `{}`. We can use a single number, like `{n}` (exactly `n` times), to indicate an exact number of times, or we could specify an open or closed range, like `{n,}` (`n` or more times) or `{n,m}` (between `n` and `m` times).
+
+If you want to match a date in the format `YYYY-MM-DD`, but you want to be very careful you don't accidentally match a sequence of numbers are dashes that isn't a date, you could use the regular expression `[0-9]{4}-[0-9]{2}-[0-9]{2}`. This is more reliable and robust than the `[0-9]+-[0-9]+-[0-9]+` we saw above. If you want to match a date in the format `DD Month YYYY`, where the day could be a one-digit or two-digit number, we could use `[0-9]{1,2} [A-Z][a-z]+, [0-9]{4}`. This is much more robust than, say, `[0-9]+ [A-Za-z,]+ [0-9]+` because it's better at avoiding false positives (accidentally identifying a match that really isn't a match). In general, using more precise quantifiers helps to avoid false positives. But being too specific can also cause false negatives (accidentally not identifying a match). For example, if we used `[0-9]{2} [A-Z][a-z]+, [0-9]{4}`, we would miss a date like `1 January, 2022`. 
+
+A particularly useful regular expression we can writing using quantifiers is `.*?`. This is a special pattern that means "any character any number of times until you get to" whatever comes after. For example, to match any text between the sub-string `X` and the sub-string `Y`, we can use `X.*?Y`. The `?` tells the `*` to "not be greedy" and stop once it sees `Y`. This is useful for matching text that we can only identify based on what surrounds it, rather than on some distinguishing feature of the text itself. 
+
+## Anchors
+
+Sometimes, a string will have multiple matches, and we only want one of them. If the match we're interested in is at the start or end of a string, we can use anchors to get the right one. Outside of a character class, `^` means the start of a string and `$` means the end of the string. For example, let's say we have a date in the format `YYYY-MM-DD`, like `2022-01-01`, and we want to extract the day, which is at the end. We could use the regular expression `[0-9]+$`, which means "find a sequence of numbers at the end of the string." We could extract the year using `^[0-9]+`, which means "find a sequence of numbers at the start of the string."
+
+## Groups
+
+We can create groups inside a regular expression using `()`. Creating groups can be useful for two main reasons. 
+
+First, we can use groups to use `|` within a larger regular expression. For example, we could identify article numbers using `(Art\\.|Article) [0-9]+`. This will match `Art. 267` and `Article 267`. This is useful when your texts contain predictable formatting inconsistencies. 
+
+Second, when you define one or more groups, you can refer back to them in the replacement string using `\\#`, where `#` is the number of the group. Let's say a minority of our texts have article numbers in the format `Article 267` and we want to convert these to the format `Art. 267` to match the majority of the texts. We could use the expression `Article ([0-9]+)` to match the text and then replace it using the string `Art. \\1`. The `\\1` refers to whatever is inside the parentheses. This lets us refer back to text that we've matched without actually knowing exactly what that text is.
+
+# Using the stringr package
+
+We'll implement regular expressions in `R` using the `stringr` package. `stringr` includes functions for detecting, extracting, replacing, and removing text using regular expressions.
+
+## Detecting text
+
+`str_detect()` checks for matches in a string vector. This function returns a logical vector that indicates whether each element in the input vector contains a match. We can use `as.numeric()` to convert this logical vector to a dummy variable. This is really useful for creating dummy variables that indicate whether texts contain certain information. `str_count()` is similar but returns the number of matches.
+
+```{r}
+# Does the text mention a treaty article?
+procedure_text |>
+  str_detect("Article [0-9]+") # Match article numbers
+
+# Does the text contain a date?
+procedure_text |>
+  str_detect("[0-9]{1,2} [A-Z][a-z]+ [0-9]{4}") |> # Matches dates
+  as.numeric() # Convert to a dummy variable
+
+# How many dates does the text contain?
+procedure_text |>
+  str_count("[0-9]{1,2} [A-Z][a-z]+ [0-9]{4}") # Match dates
+```
+
+## Extracting text
+
+`str_extract()` extracts the first match from a string vector. It returns a vector with the first match from each element of the string vector you give it. `str_extract_all()` extracts all matches. It returns a list. Each element of the list is a vector that contains all of the matches from each element of the string vector you give it. If you give it a single string, you'll get a list with one element, and that element will be a vector with all of the matches. You can flatten this list into a vector using `flatten()` from the `purrr` package, which includes functions for working with lists. You can assign the output of `str_extract_all()` to a column of a `tibble`, which will be a list, instead of a string vector.
+
+As we'll see in the examples, sometimes it's useful to extract a larger string of text that contains what we're interested in, in order to isolate it, and then extract what we're interested in from that fragment. 
+
+```{r}
+# Extract the case number
+case_text |> 
+  str_extract("[0-9]+") |> # Extract the first number in the string
+  as.numeric() # Convert the string to an integer
+
+# Extract the year of the case
+case_text |>
+  str_extract("C-[0-9]+/[0-9]+") |> # Extract the case number
+  str_extract("[0-9]+$") |> # Extract the last number in the case number
+  as.numeric() # Convert the string to an intenger
+
+# Extract the first date in the text
+procedure_text |>
+  str_extract("[0-9]{1,2} [A-Z][a-z]+ [0-9]{4}") |> # Extract the first date
+  dmy() # Convert the date to a YYYY-MM-DD format
+
+# Extract all dates in the text
+procedure_text |>
+  str_extract_all("[0-9]{1,2} [A-Z][a-z]+ [0-9]{4}") |> # This returns a list of length 1
+  flatten() |> # Flatten the list to a vector
+  dmy() # Convert the date to a YYYY-MM-DD format
+  
+# Extract the name of the judge-rapporteur (the judge who writes the judgment)
+judges_text |>
+  str_extract("[A-Z][a-z]+ \\(Rapporteur\\)") |> # Match the name of the judge-rapporteur
+  str_extract("[A-Z][a-z]+") # Extract the name
+
+# Extract the legal procedure
+procedure_text |>
+  str_extract("^.*?Article [0-9]+")
+```
+
+## Replacing text
+
+`str_replace()` replaces the first match in each element of a string vector with some other text that you provide. `str_replace_all()` replaces all matches. If your regular expression includes a group, you can refer to the group in the replacement string using `\\1`. You can refer to as many groups as you include in your regular expression. 
+
+```{r}
+# Change the format of dates from DD Month YYYY to Month DD YYYY
+procedure_text |>
+  str_replace_all("([0-9]{1,2}) ([A-Z][a-z]+) ([0-9]{4})", "\\2 \\1 \\3") # Change the order of the day and month
+
+# Add the full year to the case number
+case_text |>
+  str_replace("([0-9]+),", "20\\1,")
+```
+
+## Removing text
+
+`str_remove()` removes the first match in a string. `str_remove_all()` removes all matches. Removing text is often useful before extracting text to make it easier to match what we're interested in. It's also useful after extracting text to remove anything in the matching text that we don't want.
+
+```{r}
+# Extract the year of the case
+case_text |>
+  str_remove(",") |> # Remove the comma at the end
+  str_extract("[0-9]+$") |> # Extract the last number in the case number
+  as.numeric() # Convert the string to an intenger
+  
+# Extract the name of the judge-rapporteur (the judge who writes the judgment)
+judges_text |>
+  str_extract("[A-Z][a-z]+ \\(Rapporteur\\)") |> # Match the name of the judge-rapporteur
+  str_remove("\\(Rapporteur\\)") |> # Remove the text in parentheses
+  str_squish() # Remove extra white space
+```
+
+# Examples and strategies
+
+Now that we've seen some basic examples, let's use what we've learned so far to identify and evaluate some strategies for extracting the case number, the legal procedure, and the names of the judges from our `3` lines of example text. Then, we'll use regular expressions to prepare some text for quantitative text analysis. 
+
+## Example 1: Extracting the case number
+
+To extract the case number we need to match `C‑370/12`, but we want to write a general expression that will catch all case numbers, not just the one in this case. What we did before works for this case number, but it won't work for all case numbers.
+
+```{r}
+# Extract the case number
+str_extract(case_text, "C-[0-9]+/[0-9]+")
+```
+
+The CJEU is composed of two constituent courts, the Court of Justice and the General Court. At the Court of Justice, case numbers start with `C-`, like the one in our example text. But at the General Court, case numbers start with `T-`. We need to make our regular expression more flexible to work on judgments from both courts. 
+
+```{r}
+# Some example case numbers
+case_numbers <- c("C-101/22", "T-105/22")
+
+# We can use the "or" operator
+str_extract(case_numbers, "(C|T)-[0-9]+/[0-9]+")
+
+# Or we can use a character class
+str_extract(case_numbers, "[CT]-[0-9]+/[0-9]+")
+```
+
+## Example 2: Extracting the legal procedure
+
+There are two general strategies for extracting information from text:
+
+1. **Extraction:** Match the text we're interested in and extract it from the surrounding text. This is a good strategy when the text we're interested in has a clear, distinctive pattern that we can match directly, like a case number.
+
+2. **Reduction:** Remove all of the text around what we're interested it, leaving just what we want. This is a good strategy when the text we're interested in doesn't really have any distinguishing features, making it hard to match directly, like the name of the legal procedure.
+
+It's very common to combine both approaches. If there aren't many distinguishing features of the text we're interested in matching, we can match what occurs on either side of what we're interested in, and then remove that parts we don't want.
+
+To extract the legal procedure, we need to match `REFERENCE for a preliminary ruling`. But we want to match all legal procedures, not just the one for this case. If we look at some other judgments, we'll see that the legal procedure is always at the start of the line, always begins with a capitalized word, and always ends with `under` followed by the legal basis. How can we match this pattern? 
+
+Here, we'll use a combination of extraction and reduction. First, we'll extract some text that contains what we want. Then, we'll remove that parts we don't want. We'll match the start of the procedure using the `^` anchor and the end of the procedure using the word `under`. We'll use the really useful `.*?` pattern we talked about above to match everything in between. 
+
+```{r}
+# Extract the legal procedure
+procedure_text |>
+  str_extract("^[A-Z]+.*?under") |> # Extract the relevent part of the string
+  str_remove("under") |> # Remove the anchor text at the end
+  str_squish() |> # Remove white space
+  str_to_sentence() # Fix capitalization 
+```
+
+## Example 3: Extracting the names of the judges
+
+Now, let's extract the names of the judges. This is a bit harder. The best approach here is reduction. We  have a line of text that includes the names of the judges and only a few other elements, like the phrases `(Rapporteur)`, `Vice-President,`,  `composed of`, and `, Judges,`. We can write regular expressions to remove those phrases, leaving behind just the names. We're just interested in the last names of the judges, so we'll also want to remove their initials. Once we've reduced our string to just the names of the judges, we can use the commas to split the names apart, creating an a clean vector of judge names.
+
+```{r}
+# Make a list of judge names
+judges <- judges_text |>
+  str_remove("composed of") |>
+  str_remove(", Judges,") |>
+  str_replace("\\(Rapporteur\\)", " ") |>
+  str_replace_all("(Vice-)?President(s of Chambers)?,", " ") |>
+  str_replace_all(" [A-Z]\\. | [A-Z]\\.[A-Z]\\. | [A-Z]\\.-[A-Z]\\.", " ") |> # Remove initials
+  str_replace_all(" and ", ", ") |> # Convert " and " to ", "
+  str_replace_all(" *, *", ", ") |> # Remove extra spaces in front of commas
+  str_squish() # Remove extra white space
+  
+# Split the list of judge names into a vector
+judges <- judges |>
+  str_split(",") |> # Split the string at each comma
+  flatten() |> # This returns a list, so we have to flatten it
+  str_squish() # Remove extra white space
+  
+# Check the output
+judges
+```
+
+Here are a few tips to keep in mind based on what we've learned in this example. 
+
+**Tip #1:** Make sure you pay attention to whether you're using `str_replace()` versus `str_replace_all()`. The same applies to `str_remove()` and `str_remove_all()`. It's easy to accidentally use one when you need the other.
+
+**Tip #2:** When you use several regular expressions in a row to clean a string, it's good practice to run your code one step at a time to make sure each step is doing what you expect. Each step changes something about the string, and whatever you run next has to build on that. You need to make sure that subsequent regular expressions are written to take into account what the string looks like *when you apply the regular expression*, not what it looked like at the beginning.
+
+**Tip #3:** When you're removing text from the middle of a string, it's often a good idea to replace what you're removing with a space. This makes sure that removing the text doesn't cause two words to get squished together. You can always remove any extra spaces using `str_squish()` at the end. 
+
+## Example 4: Using regular expressions to prepare text for analysis
+
+We can use `stringr` and regular expressions to prepare text for quantitative text analysis. We'll use a paragraph from the judgment for case `C‑370/12` as an example. You could use the same code to clean an entire text corpus. You would just pass in a column from a `tibble` containing your text instead of the `text` object in the example.
+
+In this example, we'll convert the text to lower case, remove punctuation, remove numbers, remove a custom list of stop words (short words that have grammatical meaning, but not substantive meaning), and remove extra white space.
+
+To remove the stop words, we'll start with a string vector that contains the words. We'll use `str_c()` with `collapse = "|` to collapse this vector of words into a single string and to add the `|` operator between each word. Then, we'll use `str_c` to wrap this regular expression in `()` and add `\\b` at the start and end. This produces the regular expression like `\\b(the|a|an|and)\\b`, which matches all of the stop words in the paragraph. This is a nice example of using code to generate more complicated code. Adding the `\\b` at each end makes sure we don't match these stop words when they occur in the middle of a word. We only want to match those sequences of letters when they form a stand-alone word. 
+
+```{r}
+# Take an example paragraph from the judgment
+text <- "The stability mechanism will provide the necessary tool for dealing with such cases of risk to the financial stability of the euro area as a whole as have been experienced in 2010, and hence help preserve the economic and financial stability of the Union itself. At its meeting of 16 and 17 December 2010, the European Council agreed that, as this mechanism is designed to safeguard the financial stability of the euro area as [a] whole, Article 122(2) of the [FEU Treaty] will no longer be needed for such purposes. The Heads of State or Government therefore agreed that it should not be used for such purposes."
+
+# Custom list of stop words
+stop_words <- c(
+  "the", "a", "an", "and", "or", "it", "its",
+  "is", "was", "will", "be", "have", "been", "this", "that", 
+  "of", "to", "for", "in", "on", "by", "as", "at", "with"
+)
+
+# Create a regular expression to replace stop words
+stop_words_regex <- str_c(stop_words, collapse = "|")
+stop_words_regex <- str_c("\\b(", stop_words_regex, ")\\b") # This makes sure we don't delete text in the middle of words
+stop_words_regex
+
+# Clean the text for analysis
+clean_text <- text |>
+  str_squish() |> # Always start by removing extra white space
+  str_to_lower() |> # Then convert to lower case
+  str_replace_all("[[:punct:]]+", " ") |> # Remove punctuation
+  str_replace_all("[[:digit:]]+", " ") |> # Remove numbers
+  str_replace_all(stop_words_regex, " ") |> # Remove a custom list of stop words
+  str_squish() # Remove extra white space again
+
+# Check the output
+clean_text
+```
+
+The only other thing we might want to do to this text before we do some text analysis is lemmatization, which involves removing grammatical endings, taking words down to their grammatical root. We could use the `quanteda` package for that. We could also clean the text using `quanteda` functions instead of using `stringr` and regular expressions. 
+
+# Final thoughts
+
+There are usually many different regular expressions that you could write to match the pattern you're interested in. Some might be better than others because they're better at avoiding false positives (accidentally matching text you're not interested) or false negatives (accidentally not matching text that you're interested in). Writing a good regular expression is as much an art as a science. The better you know your text data, and any formatting inconsistencies or errors it contains, the better you can tailor the flexibility of your regular expressions to minimize false positive and false negatives.  
+
+**Always remember:** You need to test our your regular expressions to make sure they're catching all occurrences of the pattern. There could be some formatting inconsistencies in your text data, and you need to make sure your regular expression is flexible enough to handle them appropriately. Writing regular expressions is an iterative process. You have to try things out and make sure you get what you want. Always validate your data by checking a random sample and by checking any observations that you suspect might be particularly complicated.
+
+With a little practice, regular expressions give you full control over manipulating text data. There's *almost always* a regular expression that will allow you to detect, extract, replace, or remove that text you're interested in. But sometimes it can take some creativity to figure out. 
