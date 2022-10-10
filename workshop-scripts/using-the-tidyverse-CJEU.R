@@ -54,8 +54,6 @@ x <- random_numbers |>
 # Clean environment
 rm(random_numbers, x, x_1, x_2)
 
-load("~/Desktop/CJEU-database-platform-assignments-v-0-1.RData")
-
 # Sorting data ------------------------------------------------------------
 
 # Example 1: sort data by date (ascending order)
